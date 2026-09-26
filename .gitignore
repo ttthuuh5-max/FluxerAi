@@ -1,0 +1,33 @@
+# --- Python ---
+__pycache__/
+*.py[cod]
+*$py.class
+*.egg-info/
+.eggs/
+build/
+dist/
+.venv/
+venv/
+env/
+
+# --- Secrets / runtime data (do not commit) ---
+config/data/keys.json
+config/data/*.local.json
+.env
+.env.*
+*.key
+*.pem
+
+# --- OS / editor junk ---
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/
+*.swp
+
+# --- Logs ---
+*.log
+logs/
+
+# --- Docker ---
+.dockerignore

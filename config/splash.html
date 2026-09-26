@@ -1,0 +1,408 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#04060c">
+<title>FluxerAi — запуск</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cpath d='M13 2 3 14h9l-1 8 10-12h-9l1-8z' fill='%2300d4ff'/%3E%3C/svg%3E">
+<!--
+  Заставка запуска. Её отдаёт code/p00_boot.py (без Flask — работает, даже если библиотеки ещё не установлены).
+  Правится без перезапуска логики: цвета — переменные --blue / --green, тексты — NAME / TAGLINE в скрипте внизу.
+  Отключить заставку целиком: SPLASH=0
+-->
+<style>
+:root{
+  --blue:#00b4ff;
+  --green:#00ffb3;
+  --bg:#04060c;
+  --muted:#7f9bb0;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+html,body{height:100%;background:var(--bg);overflow-x:hidden;overflow-y:auto}
+body{
+  color:#cfe9f5;
+  font-family:system-ui,-apple-system,"Segoe UI",Roboto,"Helvetica Neue",Arial,sans-serif;
+  background:radial-gradient(ellipse at 50% 32%,#0b1526 0%,#060a14 45%,var(--bg) 78%);
+  -webkit-tap-highlight-color:transparent;
+  user-select:none;-webkit-user-select:none;
+}
+
+.stage{
+  position:relative;
+  min-height:100vh;min-height:100dvh;
+  display:flex;flex-direction:column;align-items:center;
+  padding:max(16px,env(safe-area-inset-top)) 24px max(16px,env(safe-area-inset-bottom));
+  text-align:center;
+  transition:opacity .45s ease;
+}
+/* «безопасное» центрирование: если контент выше экрана — он не обрезается сверху, а прокручивается */
+.stage::before,.stage::after{content:"";flex:1 0 0}
+body.leaving .stage{opacity:0}
+
+/* ---------- вспышка на весь экран ---------- */
+.flash{
+  position:fixed;inset:0;pointer-events:none;opacity:0;
+  background:radial-gradient(circle at 50% 36%,rgba(190,245,255,.95) 0%,rgba(0,180,255,.38) 32%,transparent 68%);
+}
+.stage.strike .flash{animation:flash 1.5s ease-out both}
+@keyframes flash{
+  0%{opacity:0} 5%{opacity:.95} 12%{opacity:.04} 19%{opacity:.7}
+  30%{opacity:.03} 38%{opacity:.42} 55%,100%{opacity:0}
+}
+
+/* ---------- молния ---------- */
+.bolt-wrap{width:clamp(72px,min(28vw,22vh),160px);aspect-ratio:1;margin-bottom:10px;position:relative;flex:none}
+.bolt{
+  width:100%;height:100%;overflow:visible;opacity:0;
+  filter:drop-shadow(0 0 12px rgba(0,190,255,.95)) drop-shadow(0 0 38px rgba(0,255,179,.55));
+}
+.stage.strike .bolt{animation:strike 1.5s linear both}
+@keyframes strike{
+  0%{opacity:0;transform:scale(.72) translateY(-12px)}
+  5%{opacity:1;transform:scale(1.18)}
+  12%{opacity:.12;transform:scale(1.05)}
+  19%{opacity:1;transform:scale(1.08)}
+  30%{opacity:.22}
+  38%{opacity:1;transform:scale(1)}
+  100%{opacity:1;transform:scale(1)}
+}
+.stage.settled .bolt{animation:none;opacity:1;transform:none}
+.stage.settled .bolt-wrap{animation:breathe 2.6s ease-in-out infinite}
+@keyframes breathe{
+  0%,100%{filter:brightness(1)}
+  50%{filter:brightness(1.35) drop-shadow(0 0 10px rgba(0,255,179,.35))}
+}
+.arc{fill:none;stroke:#b8f6ff;stroke-width:.32;stroke-linecap:round;stroke-linejoin:round;opacity:0}
+.stage.strike .arc{animation:arc 1.5s linear both}
+.stage.strike .arc:nth-child(2){animation-delay:.05s}
+.stage.strike .arc:nth-child(3){animation-delay:.1s}
+@keyframes arc{
+  0%{opacity:0} 6%{opacity:1} 13%{opacity:0} 20%{opacity:.9}
+  31%{opacity:0} 39%{opacity:.6} 52%,100%{opacity:0}
+}
+
+/* ---------- название: сине-зелёное, по буквам ---------- */
+.title{
+  display:flex;justify-content:center;
+  font-weight:800;line-height:1.05;letter-spacing:.02em;
+  font-size:clamp(34px,min(12vw,11vh),88px);
+  min-height:1.1em;
+}
+.title span{
+  display:inline-block;opacity:0;
+  transform:translateY(22px) scale(.86);filter:blur(9px);
+}
+.title.show span{
+  animation:
+    letter .65s cubic-bezier(.2,.85,.25,1) forwards,
+    glow 3.2s ease-in-out infinite;
+  animation-delay:calc(var(--i) * 75ms), calc(var(--i) * 75ms + 900ms);
+}
+@keyframes letter{to{opacity:1;transform:none;filter:blur(0)}}
+@keyframes glow{
+  0%,100%{text-shadow:0 0 10px currentColor}
+  50%{text-shadow:0 0 26px currentColor,0 0 4px currentColor}
+}
+
+.sub{
+  margin-top:10px;min-height:1.5em;
+  font-size:clamp(14px,3.8vw,18px);letter-spacing:.06em;
+  background:linear-gradient(90deg,var(--blue),var(--green));
+  -webkit-background-clip:text;background-clip:text;
+  color:transparent;-webkit-text-fill-color:transparent;
+}
+.sub.typing::after{
+  content:"";display:inline-block;width:2px;height:1.05em;margin-left:3px;vertical-align:-.15em;
+  background:var(--green);animation:blink .7s steps(1) infinite;
+}
+@keyframes blink{50%{opacity:0}}
+
+/* ---------- статус: «Всё готово» / «Скачиваем библиотеки» ---------- */
+.status{
+  margin-top:clamp(14px,4.5vh,38px);min-height:74px;
+  opacity:0;transform:translateY(10px);
+  transition:opacity .55s ease,transform .55s ease;
+}
+.status.show{opacity:1;transform:none}
+.status-main{
+  display:flex;align-items:center;justify-content:center;gap:11px;
+  font-size:clamp(17px,4.4vw,21px);font-weight:650;color:#c6efff;
+}
+.spin{
+  width:19px;height:19px;border-radius:50%;flex:none;
+  border:2px solid rgba(0,180,255,.22);border-top-color:var(--green);
+  animation:rot .8s linear infinite;
+}
+@keyframes rot{to{transform:rotate(360deg)}}
+.icon{
+  width:21px;height:21px;border-radius:50%;flex:none;
+  display:grid;place-items:center;font-size:13px;font-weight:900;line-height:1;color:#03130d;
+  background:var(--green);box-shadow:0 0 14px rgba(0,255,179,.6);
+  animation:pop .45s cubic-bezier(.2,.9,.3,1.4);
+}
+.status.error .icon{background:#ff6b6b;box-shadow:0 0 14px rgba(255,107,107,.55);color:#210505}
+.status.error .status-main{color:#ffb3b3}
+.detail{
+  margin:8px auto 0;max-width:min(560px,88vw);min-height:1.3em;
+  font-size:13px;color:var(--muted);
+  font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;
+  overflow:hidden;text-overflow:ellipsis;white-space:nowrap;
+}
+.status.error .detail{white-space:normal;color:#d59a9a}
+.bar{
+  position:relative;overflow:hidden;
+  width:min(320px,72vw);height:4px;margin:14px auto 0;border-radius:4px;
+  background:rgba(255,255,255,.07);
+}
+.bar i{
+  position:absolute;top:0;bottom:0;left:0;width:38%;border-radius:4px;
+  background:linear-gradient(90deg,var(--blue),var(--green));
+  animation:slide 1.15s ease-in-out infinite;
+}
+.bar.full i{width:100%;animation:none}
+.status.error .bar{display:none}
+@keyframes slide{0%{left:-40%}100%{left:102%}}
+
+/* ---------- «Мы перекинем вас на сайт через 3 2 1» ---------- */
+.redirect{
+  margin-top:clamp(8px,2.5vh,20px);min-height:2em;
+  font-size:clamp(14px,3.9vw,17px);color:#9dbccd;
+  opacity:0;transition:opacity .5s ease;
+}
+.redirect.show{opacity:1}
+.redirect b{
+  display:inline-block;min-width:.8em;margin-left:4px;
+  font-size:1.65em;font-weight:800;vertical-align:-.12em;
+  background:linear-gradient(180deg,var(--blue),var(--green));
+  -webkit-background-clip:text;background-clip:text;
+  color:transparent;-webkit-text-fill-color:transparent;
+}
+.redirect b.pop{animation:num .55s cubic-bezier(.2,.9,.3,1.2)}
+@keyframes num{0%{transform:scale(2.1);opacity:0}100%{transform:none;opacity:1}}
+@keyframes pop{0%{transform:scale(.3);opacity:0}100%{transform:none;opacity:1}}
+
+.hint{
+  position:fixed;left:0;right:0;bottom:max(18px,env(safe-area-inset-bottom));
+  text-align:center;font-size:12px;color:#4d6577;letter-spacing:.04em;
+  opacity:0;transition:opacity .6s ease;pointer-events:none;
+}
+.hint.show{opacity:1}
+noscript{position:fixed;inset:0;display:grid;place-items:center;color:#cfe9f5}
+@media (max-height:520px){
+  .bolt-wrap{margin-bottom:4px}
+  .sub{margin-top:4px}
+  .status{min-height:64px}
+  .hint{display:none}
+}
+</style>
+</head>
+<body>
+<noscript><p>Включи JavaScript или открой <a href="/" style="color:#00ffb3">сайт</a> позже.</p></noscript>
+
+<div class="stage" id="stage">
+  <div class="flash"></div>
+
+  <div class="bolt-wrap">
+    <svg class="bolt" viewBox="0 0 24 24" aria-hidden="true">
+      <defs>
+        <linearGradient id="bg" x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0" stop-color="#8fe9ff"/>
+          <stop offset=".55" stop-color="#19c6ff"/>
+          <stop offset="1" stop-color="#00ffb3"/>
+        </linearGradient>
+      </defs>
+      <path d="M12 9 17 6 15.4 4.4 20.5 1"          class="arc"/>
+      <path d="M9.5 14.5 4.6 16.4 6.2 18.2 1.8 21.4" class="arc"/>
+      <path d="M17.5 12.4 22 13.6 20.4 15.6 23.8 18.4" class="arc"/>
+      <path d="M13 2 3 14h9l-1 8 10-12h-9l1-8z"
+            fill="url(#bg)" stroke="#e6fbff" stroke-width=".55" stroke-linejoin="round"/>
+    </svg>
+  </div>
+
+  <div class="title" id="title" aria-label="FluxerAi"></div>
+  <div class="sub" id="sub"></div>
+
+  <div class="status" id="status" aria-live="polite">
+    <div class="status-main"><span id="sIcon"></span><span id="sText"></span></div>
+    <div class="detail" id="sDetail"></div>
+    <div class="bar" id="bar"><i></i></div>
+  </div>
+
+  <div class="redirect" id="redirect">
+    <span id="rText">Мы перекинем вас на сайт через</span><b id="num">3</b>
+  </div>
+</div>
+
+<div class="hint" id="hint">нажми в любом месте, чтобы пропустить</div>
+
+<script>
+(function () {
+  'use strict';
+
+  var NAME    = 'FluxerAi';
+  var TAGLINE = 'Локальный чат для ИИ-моделей';
+  var BLUE  = [0, 180, 255];
+  var GREEN = [0, 255, 179];
+
+  function $(id) { return document.getElementById(id); }
+  var stage = $('stage'), title = $('title'), sub = $('sub'), status = $('status'),
+      sIcon = $('sIcon'), sText = $('sText'), sDetail = $('sDetail'), bar = $('bar'),
+      redirect = $('redirect'), rText = $('rText'), num = $('num'), hint = $('hint');
+
+  function sleep(ms) { return new Promise(function (r) { setTimeout(r, ms); }); }
+
+  var phase = 'checking', detail = '', errText = '', appLive = false, skip = false;
+
+  /* ---------- название: каждая буква своего оттенка от синего к зелёному ---------- */
+  function buildTitle() {
+    var n = NAME.length;
+    for (var i = 0; i < n; i++) {
+      var t = n > 1 ? i / (n - 1) : 0;
+      var c = BLUE.map(function (b, k) { return Math.round(b + (GREEN[k] - b) * t); });
+      var s = document.createElement('span');
+      s.textContent = NAME[i];
+      s.style.color = 'rgb(' + c.join(',') + ')';
+      s.style.setProperty('--i', i);
+      title.appendChild(s);
+    }
+  }
+
+  async function typeSub() {
+    sub.classList.add('typing');
+    for (var i = 1; i <= TAGLINE.length; i++) {
+      sub.textContent = TAGLINE.slice(0, i);
+      await sleep(28);
+    }
+    await sleep(250);
+    sub.classList.remove('typing');
+  }
+
+  /* ---------- статус ---------- */
+  function setIcon(kind) {
+    if (sIcon.dataset.kind === kind) return;
+    sIcon.dataset.kind = kind;
+    sIcon.className = kind === 'spin' ? 'spin' : 'icon';
+    sIcon.textContent = kind === 'ok' ? '\u2713' : (kind === 'err' ? '\u2715' : '');
+  }
+
+  function render() {
+    status.classList.toggle('error', phase === 'error');
+    if (phase === 'ready') {
+      setIcon('ok');
+      sText.textContent = 'Всё готово';
+      sDetail.textContent = '';
+      bar.className = 'bar full';
+    } else if (phase === 'installing') {
+      setIcon('spin');
+      sText.textContent = 'Скачиваем библиотеки…';
+      sDetail.textContent = detail;
+      bar.className = 'bar';
+    } else if (phase === 'error') {
+      setIcon('err');
+      sText.textContent = 'Что-то пошло не так';
+      sDetail.textContent = errText;
+      bar.className = 'bar';
+    } else {
+      setIcon('spin');
+      sText.textContent = 'Проверяем библиотеки…';
+      sDetail.textContent = '';
+      bar.className = 'bar';
+    }
+  }
+
+  /* ---------- опрос загрузчика ---------- */
+  async function pollStatus() {
+    for (;;) {
+      try {
+        var r = await fetch('/__boot/status', { cache: 'no-store' });
+        if (r.status === 404) { appLive = true; return; }   // порт уже у настоящего сервера
+        var j = await r.json();
+        phase = j.phase || phase;
+        detail = j.detail || '';
+        errText = j.error || '';
+        render();
+      } catch (e) { /* сервер как раз меняется — пробуем снова */ }
+      await sleep(400);
+    }
+  }
+
+  /* ---------- обратный отсчёт 3 · 2 · 1 ---------- */
+  function waitOrSkip(ms) {
+    return new Promise(function (resolve) {
+      var t0 = Date.now();
+      (function tick() {
+        if (skip || Date.now() - t0 >= ms) return resolve();
+        setTimeout(tick, 40);
+      })();
+    });
+  }
+
+  async function countdown() {
+    redirect.classList.add('show');
+    hint.classList.add('show');
+    for (var n = 3; n >= 1 && !skip; n--) {
+      num.textContent = n;
+      num.classList.remove('pop');
+      void num.offsetWidth;
+      num.classList.add('pop');
+      await waitOrSkip(1000);
+    }
+  }
+
+  /* ---------- переход на сайт ---------- */
+  async function goToSite() {
+    rText.textContent = 'Открываем сайт…';
+    num.textContent = '';
+    try { await fetch('/__boot/handoff', { method: 'POST' }); } catch (e) {}
+    var t0 = Date.now();
+    for (;;) {
+      try {
+        // у заставки есть заголовок X-Fluxer-Boot, у настоящего сервера — нет
+        var r = await fetch('/', { method: 'HEAD', cache: 'no-store' });
+        if (r.ok && !r.headers.get('X-Fluxer-Boot')) {
+          document.body.classList.add('leaving');
+          await sleep(420);
+          location.replace('/');
+          return;
+        }
+      } catch (e) {}
+      if (Date.now() - t0 > 60000) {
+        phase = 'error';
+        errText = 'Сервер не ответил. Посмотри сообщения в консоли.';
+        render();
+        return;
+      }
+      await sleep(300);
+    }
+  }
+
+  async function main() {
+    buildTitle();
+    stage.classList.add('strike');            // 1. молния и вспышка
+    pollStatus();
+    document.addEventListener('pointerdown', function () { skip = true; });
+    document.addEventListener('keydown', function () { skip = true; });
+
+    await sleep(1400);
+    stage.classList.add('settled');
+
+    title.classList.add('show');               // 2. сине-зелёный текст
+    await sleep(NAME.length * 75 + 700);
+    await typeSub();
+
+    status.classList.add('show');              // 3. «Скачиваем библиотеки…» / «Всё готово»
+    render();
+    while (phase !== 'ready' && phase !== 'error' && !appLive) { await sleep(120); }
+    if (phase === 'error') return;
+    await sleep(skip ? 0 : 1000);
+
+    await countdown();                         // 4. «…на сайт через 3 2 1»
+    await goToSite();
+  }
+
+  main();
+})();
+</script>
+</body>
+</html>
